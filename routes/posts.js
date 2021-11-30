@@ -2,67 +2,29 @@
 var express = require('express');
 var router = express.Router();
 var Post = require('../models/Post');
+var controllers = require('../controllers/postController');
 
-
-router.get('/', function(req, res){
-    Post.find({})
-    .sort('-createdAt')
-    .exec(function(err, posts){
-        if(err) return res.json(err);
-        res.render('posts/index', {posts:posts});
-    });
-  });
-
+// Index
+router.get('/', controllers.get);
 
 // New
 router.get('/new', function(req, res){
     res.render('posts/new');
   });
 
-
 // create
-router.post('/', function(req, res){
-    Post.create(req.body, function(err, post){
-      if(err) return res.json(err);
-      res.redirect('/posts');
-    });
-  }); 
+router.post('/', controllers.write); 
 
-
-// show
-router.get('/:id', function(req, res){
-    Post.findOne({_id:req.params.id}, function(err, post){
-      if(err) return res.json(err);
-      res.render('posts/show', {post:post});
-    });
-  });
-
+// show & detail
+router.get('/:id', controllers.detail);
 
 // edit
-router.get('/:id/edit', function(req, res){
-    Post.findOne({_id:req.params.id}, function(err, post){
-      if(err) return res.json(err);
-      res.render('posts/edit', {post:post});
-    });
-  });
-  
+router.get('/:id/edit', controllers.edit);  
 
 // update
-router.put('/:id', function(req, res){
-    req.body.updatedAt = Date.now(); //2
-    Post.findOneAndUpdate({_id:req.params.id}, req.body, function(err, post){
-      if(err) return res.json(err);
-      res.redirect("/posts/"+req.params.id);
-    });
-  });
+router.put('/:id', controllers.update);
   
-  
-  // destroy
-  router.delete('/:id', function(req, res){
-    Post.deleteOne({_id:req.params.id}, function(err){
-      if(err) return res.json(err);
-      res.redirect('/posts');
-    });
-  });
-  
-  module.exports = router;
+// destroy
+router.delete('/:id', controllers.delete);
+
+module.exports = router;

@@ -1,4 +1,5 @@
 var User = require('../models/User');
+var util = require('../util');
 
 // Index
 exports.get = function(req, res){
@@ -16,7 +17,7 @@ exports.create = function(req, res){
     User.create(req.body, function(err, user){
       if(err){
         req.flash('user', req.body);
-        req.flash('errors', parseError(err));
+        req.flash('errors', util.parseError(err));
         return res.redirect('/users/new');
       }
       res.redirect('/users');
@@ -67,7 +68,7 @@ exports.update = function(req, res, next){
         user.save(function(err, user){
           if(err){
             req.flash('user', req.body);
-            req.flash('errors', parseError(err));
+            req.flash('errors', util.parseError(err));
             return res.redirect('/users/'+req.params.username+'/edit');
           }
           res.redirect('/users/'+user.username);

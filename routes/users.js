@@ -1,7 +1,8 @@
 var express = require('express');
 var router = express.Router();
-var User = require('../models/User');
 var controllers = require('../controllers/userController');
+var util = require('../util');
+var User = require('../models/User');
 
 // Index
 router.get('/', controllers.get);
@@ -31,20 +32,12 @@ router.delete('/:username', controllers.delete);
 
 module.exports = router;
 
-// functions
-function parseError(errors){
-  var parsed = {};
-  if(errors.name == 'ValidationError'){
-    for(var name in errors.errors){
-      var validationError = errors.errors[name];
-      parsed[name] = { message:validationError.message };
-    }
-  }
-  else if(errors.code == '11000' && errors.errmsg.indexOf('username') > 0) {
-    parsed.username = { message:'This username already exists!' };
-  }
-  else {
-    parsed.unhandled = JSON.stringify(errors);
-  }
-  return parsed;
+
+function checkPermission(req, res, next) {
+  User.findOne({username: req.params.username}, function (err, user) {
+    if(err) return res.json(err);
+    if(user.id != req.user.id) return util.noPermission(req, res);
+
+    next();
+  });
 }

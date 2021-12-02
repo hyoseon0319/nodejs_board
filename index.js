@@ -6,6 +6,8 @@ var flash = require('connect-flash'); // 1
 var session = require('express-session'); // 1
 var passport = require('./config/passport'); //1
 var app = express();
+var passport = require('./config/passport');
+var util = require('./util');
 
 // DB setting
 var db = mongoose.connection;
@@ -44,9 +46,8 @@ app.use(function(req,res,next){
 
 // Routes
 app.use('/', require('./routes/home'));
-app.use('/posts', require('./routes/posts')); // 1
+app.use('/posts', util.getPostQueryString, require('./routes/posts')); // 1
 app.use('/users', require('./routes/users'));
-
 
 // Port setting
 var port = 3000;

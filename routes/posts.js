@@ -4,6 +4,7 @@ var router = express.Router();
 var controllers = require('../controllers/postController');
 var util = require('../util');
 var Post = require('../models/Post');
+var Comment = require('../models/Comment'); // 1
 
 // Index
 router.get('/', util.isLoggedin, controllers.get);
@@ -39,3 +40,4 @@ function checkPermission(req, res, next){
     next();
   });
 }
+

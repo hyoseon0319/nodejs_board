@@ -1,5 +1,8 @@
 var Post = require('../models/Post');
+var User = require('../models/User');
+const { post } = require('../routes/posts');
 var util = require('../util');
+var Comment = require('../models/Comment');
 
 // Index
 exports.get = async function(req, res){
@@ -8,22 +11,30 @@ exports.get = async function(req, res){
   page = !isNaN(page)?page:1;
   limit = !isNaN(limit)?limit:10;
 
+  var searchQuery = await createSearchQuery(req.query);
   var skip = (page-1)*limit;
-  var count = await Post.countDocuments({});
-  var maxPage = Math.ceil(count/limit);
-  var posts = await Post.find({})
-    .populate('author')
-    .sort('-createdAt')
-    .skip(skip)
-    .limit(limit)
-    .exec()
-      res.render('posts/index', {
-        posts:posts,
-        currentPage:page,
-        maxPage:maxPage,
-        limit:limit
-    });
+  var maxPage = 0;
+  var posts = []; 
+  
+  if(searchQuery) {
+    var count = await Post.countDocuments(searchQuery);
+    maxPage = Math.ceil(count/limit);
+    posts = await Post.find(searchQuery) // searchQuery: 검색_쿼리_오브젝트
+      .populate('author')
+      .sort('-createdAt')
+      .skip(skip)
+      .limit(limit)
+      .exec();
   }
+    res.render('posts/index', {
+      posts:posts,
+      currentPage:page,
+      maxPage:maxPage,
+      limit:limit,
+      searchType:req.query.searchType,
+      searchText:req.query.searchText
+  });
+}
 
 
 // 작성
@@ -35,20 +46,28 @@ exports.write = function(req, res){
       req.flash('errors', util.parseError(err));
       return res.redirect('/posts/new'+res.locals.getPostQueryString());
     }
-      res.redirect('/posts'+res.locals.getPostQueryString(false, {page:1}));
+      res.redirect('/posts'+res.locals.getPostQueryString(false, {page:1, searchText:'' }));
     });
   }
 
 
 // 상세정보
 exports.detail = function(req, res){
-    Post.findOne({_id:req.params.id})
-    .populate('author')
-    .exec(function(err, post){
-      if(err) return res.json(err);
-      res.render('posts/show', {post:post})
+  var commentForm = req.flash('commentForm')[0] || { _id: null, form: {} };
+  var commentError = req.flash('commentError')[0] || { _id:null, errors:{} };
+
+  Promise.all([
+      Post.findOne({_id:req.params.id}).populate({ path: 'author', select: 'username' }),
+      Comment.find({post:req.params.id}).sort('createdAt').populate({ path: 'author', select: 'username' })
+    ])
+    .then(([post, comments]) => {
+      res.render('posts/show', { post:post, comments:comments, commentForm:commentForm, commentError:commentError});
+    })
+    .catch((err) => {
+      return res.json(err);
     });
 }
+
 
 // 편집
 exports.edit = function(req, res){
@@ -88,3 +107,34 @@ exports.delete = function(req, res){
       res.redirect('/posts'+res.locals.getPostQueryString());
     });
   }
+
+
+async function createSearchQuery(queries){
+  var searchQuery = {};
+  if(queries.searchType && queries.searchText && queries.searchText.length >= 1){
+    var searchTypes = queries.searchType.toLowerCase().split(',');
+    var postQueries = [];
+
+    if(searchTypes.indexOf('title')>=0){
+      postQueries.push({ title: { $regex: new RegExp(queries.searchText, 'i') } });
+    }
+    if(searchTypes.indexOf('body')>=0){
+      postQueries.push({ body: { $regex: new RegExp(queries.searchText, 'i') } });
+    }
+    if(searchTypes.indexOf('author!')>=0){
+      var user = await User.findOne({ username: queries.searchText }).exec();
+      if(user) postQueries.push({author:user._id});
+    }
+    else if(searchTypes.indexOf('author')>=0){
+      var users = await User.find({ username: { $regex: new RegExp(queries.searchText, 'i') } }).exec();
+      var userIds = [];
+      for(var user of users){
+        userIds.push(user._id);
+      }
+      if(userIds.length>0) postQueries.push({author:{$in:userIds}});
+    }
+    if(postQueries.length > 0) searchQuery = {$or:postQueries}; 
+    else searchQuery = null;
+  }
+  return searchQuery;
+}

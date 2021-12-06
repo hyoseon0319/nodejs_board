@@ -4,6 +4,7 @@ var router = express.Router();
 var controllers = require('../controllers/postController');
 var util = require('../util');
 var Post = require('../models/Post');
+var User = require('../models/User');
 var Comment = require('../models/Comment'); // 1
 
 // Index

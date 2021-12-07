@@ -3,6 +3,7 @@ var User = require('../models/User');
 const { post } = require('../routes/posts');
 var util = require('../util');
 var Comment = require('../models/Comment');
+var File = require('../models/File');
 
 // Index
 exports.get = async function(req, res){
@@ -19,13 +20,37 @@ exports.get = async function(req, res){
   if(searchQuery) {
     var count = await Post.countDocuments(searchQuery);
     maxPage = Math.ceil(count/limit);
-    posts = await Post.find(searchQuery) // searchQuery: 검색_쿼리_오브젝트
-      .populate('author')
-      .sort('-createdAt')
-      .skip(skip)
-      .limit(limit)
-      .exec();
+    posts = await Post.aggregate([ // searchQuery: 검색_쿼리_오브젝트
+      { $match: searchQuery },
+      { $lookup: {
+          from: 'users',
+          localField: 'author',
+          foreignField: '_id',
+          as: 'author'
+      } },
+      { $unwind: '$author' },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      { $lookup: {
+          from: 'comments',
+          localField: '_id',
+          foreignField: 'post',
+          as: 'comments'
+      }},
+      { $project: {
+          title: 1,
+          author: {
+            username: 1,
+          },
+          views: 1,
+          numId: 1,
+          createdAt: 1,
+          commentCount: { $size: '$comments' }
+          } },
+    ]).exec();
   }
+
     res.render('posts/index', {
       posts:posts,
       currentPage:page,
@@ -38,7 +63,10 @@ exports.get = async function(req, res){
 
 
 // 작성
-exports.write = function(req, res){
+exports.write = async function(req, res){
+    var attachment = req.file?await File.createNewInstance(req.file, req.user._id):undefined;
+
+    req.body.attachment = attachment;
     req.body.author = req.user._id;
     Post.create(req.body, function(err, post){
       if(err) {
@@ -46,6 +74,10 @@ exports.write = function(req, res){
       req.flash('errors', util.parseError(err));
       return res.redirect('/posts/new'+res.locals.getPostQueryString());
     }
+      if(attachment){                 
+        attachment.postId = post._id;
+        attachment.save();
+      }
       res.redirect('/posts'+res.locals.getPostQueryString(false, {page:1, searchText:'' }));
     });
   }
@@ -57,11 +89,14 @@ exports.detail = function(req, res){
   var commentError = req.flash('commentError')[0] || { _id:null, errors:{} };
 
   Promise.all([
-      Post.findOne({_id:req.params.id}).populate({ path: 'author', select: 'username' }),
+    Post.findOne({_id:req.params.id}).populate({ path: 'author', select: 'username' }).populate({path:'attachment',match:{isDeleted:false}}),
       Comment.find({post:req.params.id}).sort('createdAt').populate({ path: 'author', select: 'username' })
     ])
     .then(([post, comments]) => {
-      res.render('posts/show', { post:post, comments:comments, commentForm:commentForm, commentError:commentError});
+      post.views++;
+      post.save();
+      var commentTrees = util.convertToTrees(comments, '_id','parentComment','childComments');
+      res.render('posts/show', { post:post, commentTrees:commentTrees, commentForm:commentForm, commentError:commentError}); 
     })
     .catch((err) => {
       return res.json(err);

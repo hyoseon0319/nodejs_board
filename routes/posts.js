@@ -1,11 +1,11 @@
 // routes/posts.js
 var express = require('express');
 var router = express.Router();
+var multer = require('multer');
+var upload = multer({ dest: 'uploadedFiles/' }); 
 var controllers = require('../controllers/postController');
 var util = require('../util');
 var Post = require('../models/Post');
-var User = require('../models/User');
-var Comment = require('../models/Comment'); // 1
 
 // Index
 router.get('/', util.isLoggedin, controllers.get);
@@ -18,7 +18,7 @@ router.get('/new', util.isLoggedin, function(req, res){
 })
 
 // create
-router.post('/', util.isLoggedin, controllers.write); 
+router.post('/', util.isLoggedin, upload.single('attachment'), controllers.write); 
 
 // show & detail
 router.get('/:id', checkPermission, util.isLoggedin, controllers.detail);

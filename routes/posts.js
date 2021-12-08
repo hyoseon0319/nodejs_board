@@ -27,7 +27,7 @@ router.get('/:id', checkPermission, util.isLoggedin, controllers.detail);
 router.get('/:id/edit', checkPermission, util.isLoggedin, controllers.edit);  
 
 // update
-router.put('/:id', checkPermission, util.isLoggedin, controllers.update);
+router.put('/:id', checkPermission, util.isLoggedin, upload.single('newAttachment'), controllers.update);
   
 // destroy
 router.delete('/:id', checkPermission, util.isLoggedin, controllers.delete);

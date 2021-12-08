@@ -64,3 +64,11 @@ body {
 .comment-reply-enabled .comment-reply {
   display:inherit;
 }
+
+
+.board-table .title-container:hover .title-comments,
+.board-table .title-container:hover .title-text,
+.board-table .title-container:hover .title-attachment
+{
+  text-decoration: underline;
+}
